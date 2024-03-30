@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import shutil
-from PIL import Image
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
