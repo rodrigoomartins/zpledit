@@ -113,8 +113,8 @@ with st.spinner('Gerando Preview...'):
 
 file_name_label = f"label_manual.png"
 imagem_branca = Image.new("RGB", (int(25.4*largura),int(25.4*altura)),(255,255,255))
-fonte = ImageFont.truetype("arial.ttf", 100)
-texto = f"Imagem \nnão gerada\n\nRevise o código ZPL"
+fonte = ImageFont.truetype("fonts/PTMono-Regular.ttf", 100)
+texto = f"<Imagem não gerada>\n\n<Revise o código ZPL>"
 marca_dagua = Image.new("RGBA", imagem_branca.size, (0, 0, 0, 0))
 desenhador = ImageDraw.Draw(marca_dagua)
 desenhador.text((largura*(largura*0.01), altura*(altura*0.1)), texto, font=fonte, fill=(128, 128, 128), align="left")
