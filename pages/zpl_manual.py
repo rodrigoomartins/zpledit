@@ -138,6 +138,7 @@ if response.status_code == 200:
             )
         st.markdown(f"<h3 style='text-align: center; background: yellow; color: black'>⚠ Revise o código com atenção ⚠</h3><br><br>", unsafe_allow_html=True)
         st.warning("Nossos desenvolvedores ainda não conseguem avisar se você esquecer uma , ou um ^ em um comando!")
+        st.link_button("Consultar documentação","https://www.zebra.com/content/dam/zebra_new_ia/en-us/manuals/printers/common/programming/zpl-zbi2-pm-en-pg.pdf")
 else:
     st.error(response.text)
     with col2:
