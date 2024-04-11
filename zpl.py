@@ -28,7 +28,11 @@ with st.sidebar:
         altura = st.number_input("Altura da etiqueta:",1,500,20)
     
     st.divider()
-    dpi = st.number_input("Dpmm:",1,1000,8)
+    dpi = st.select_slider(
+        'DPI:',
+        options=[6,8,12,24],
+        value=8,
+    )
 
     
 
@@ -342,7 +346,7 @@ zpl  = f"""
 ^XZ
 """
 
-url = f'http://api.labelary.com/v1/printers/8dpmm/labels/{largura / 25.4}x{altura / 25.4}/0/'
+url = f'http://api.labelary.com/v1/printers/{dpi}dpmm/labels/{largura / 25.4}x{altura / 25.4}/0/'
 files = {'file' : zpl}
 response = requests.post(url, files = files, stream = True)
 
@@ -351,7 +355,7 @@ if response.status_code == 200:
     with open('label.png', 'wb') as out_file:
         shutil.copyfileobj(response.raw, out_file)
 else:
-    print('Erro: ' + response.text)
+    st.error(response.text)
 
 
 with col002:

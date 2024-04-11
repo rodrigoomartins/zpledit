@@ -1,12 +1,14 @@
 import streamlit as st
 import requests
 import shutil
-import tempfile
 import datetime
+import os
+from PIL import Image, ImageFont, ImageDraw
 
 st.set_page_config(page_title="ZPL Edit Manual",page_icon="🖨",layout="wide", initial_sidebar_state="auto")
 
 st.page_link("zpl.py",label="ZPL Edit")
+
 
 with st.sidebar:
    
@@ -14,7 +16,7 @@ with st.sidebar:
     layout_etiquetas = st.selectbox(
         'Layout predefinidos',
         ('Personalizado','73x20', '45x20', '100x25'),
-
+        key="layout_etiquetas",
     )
     tamanhos_predefinidos = {
         "Personalizado": (1,1),
@@ -23,14 +25,21 @@ with st.sidebar:
         "100x25": (100,25),
     }
     
-    largura, altura = tamanhos_predefinidos[layout_etiquetas]
+    #largura, altura = tamanhos_predefinidos[layout_etiquetas]
 
     if layout_etiquetas == "Personalizado":
-        largura = st.number_input("Largura da etiqueta:",1,1000,73)
-        altura = st.number_input("Altura da etiqueta:",1,1000,20)
+        largura = st.number_input("Largura da etiqueta:",1,1000,73,key="largura")
+        altura = st.number_input("Altura da etiqueta:",1,1000,20,key="altura")
+    if layout_etiquetas != "Personalizado":
+        largura, altura = tamanhos_predefinidos[layout_etiquetas]
     
+
     st.divider()
-    dpi = st.number_input("Dpmm:",1,1000,8)
+    dpi = st.select_slider(
+        'DPI:',
+        options=[6,8,12,24],
+        value=8,
+    )
 
 dpi_y = altura*dpi
 dpi_x = largura*dpi
@@ -46,20 +55,16 @@ def converter_imagem_zpl(imagem):
     headers = {"Accept": "application/zpl"}
     response = requests.post(url, files=files, headers=headers)
     if response.status_code == 200:
-        # Create a temporary file to store the image data
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            for chunk in response.iter_content(1024):
-                temp_file.write(chunk)
-            return temp_file.name  # Return the temporary file path
+        return response.text
     else:
         st.error(f"Erro ao converter imagem: {response.status.code}")
-        return None  # Indicate conversion failure
+        return None
 
 st.title("ZPL Edit - Manual")
 
 col1, col2 = st.columns([1,1])
 with col1:
-    insert_zpl_code = st.text_area("Insira o código ZPL:", value="""^XA
+    zpl_code = st.text_area("Insira o código ZPL:", value="""^XA
 
 ^RFW,H^FD{epc}^FS
 
@@ -85,18 +90,11 @@ with col1:
 ^FO17.5,112^AC,8,10^FD{epc}^FS
 ^FO17.5,136^A0N,18,18^FDTROCAR ATE 30 DIAS C/ ETIQUETA^FS
 
-^XZ
-    """,
-    height=600)
-
+^XZ""",
+    height=600, key="insert_zpl_code")
     
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("Visualizar"):
-            zpl_code = insert_zpl_code
-        else:
-            zpl_code = ""
-    with col4:
         now = datetime.datetime.now()
         timestamp = now.strftime("%Y%m%d_%H%M%S")
         file_name = f"zpl_code_{timestamp}.zpl"
@@ -107,26 +105,43 @@ with col1:
             mime="text/plain"
         )
 
-url = f'http://api.labelary.com/v1/printers/8dpmm/labels/{largura / 25.4}x{altura / 25.4}/0/'
+
+url = f'http://api.labelary.com/v1/printers/{dpi}dpmm/labels/{largura / 25.4}x{altura / 25.4}/0/'
 files = {'file' : zpl_code}
-response = requests.post(url, files = files, stream = True)
+with st.spinner('Gerando Preview...'):
+    response = requests.post(url, files = files, stream = True)
+
+file_name_label = f"label_manual.png"
+imagem_branca = Image.new("RGB", (int(25.4*largura),int(25.4*altura)),(255,255,255))
+fonte = ImageFont.truetype("verdana.ttf", 100)
+texto = f"Imagem \nnão gerada\n\nRevise o código ZPL"
+marca_dagua = Image.new("RGBA", imagem_branca.size, (0, 0, 0, 0))
+desenhador = ImageDraw.Draw(marca_dagua)
+desenhador.text((largura*(largura*0.01), altura*(altura*0.1)), texto, font=fonte, fill=(128, 128, 128), align="left")
+imagem_branca.paste(marca_dagua, (0, 0), mask=marca_dagua)
 
 if response.status_code == 200:
     response.raw.decode_content = True
-    with open('label_manual.png', 'wb') as out_file:
+    with open(file_name_label, 'wb') as out_file:
         shutil.copyfileobj(response.raw, out_file)
+    with col2:
+        st.text("Preview")
+        st.caption(f"{largura} x {altura} (mm)")
+        st.image(file_name_label)
+        with open(file_name_label, "rb") as file:
+            st.download_button(
+                label="Download",
+                data=file,
+                file_name=file_name_label,
+                mime="image/png",
+                type='primary'
+            )
+        st.markdown(f"<h3 style='text-align: center; background: yellow; color: black'>⚠ Revise o código com atenção ⚠</h3><br><br>", unsafe_allow_html=True)
+        st.warning("Nossos desenvolvedores ainda não conseguem avisar se você esquecer uma , ou um ^ em um comando!")
 else:
-    print('Erro: ' + response.text)
-
-with col2:
-    st.text("Preview")
-    st.caption(f"{largura} x {altura} (mm)")
-    st.image('label_manual.png')
-    with open("label_manual.png", "rb") as file:
-        st.download_button(
-            label="Download",
-            data=file,
-            file_name="label_manual.png",
-            mime="image/png",
-            type='primary'
-        )
+    st.error(response.text)
+    with col2:
+        st.text("Preview")
+        st.caption(f"{largura} x {altura} (mm)")
+        st.empty()
+        st.image(imagem_branca)
