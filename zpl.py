@@ -157,7 +157,7 @@ with col001:
             'Tipo de código de barras',
             ('EAN-13', 'Code 128 (sem dígito verificador)')
         )
-        input_barcode = st.text_input("Código de barras:", placeholder="Digite o código de barras...",max_chars=13,key="input_barcode")
+        input_barcode = st.text_input("Código de barras:", placeholder="Digite o código de barras...",max_chars=50,key="input_barcode")
         col1_barcode, col2_barcode, col3_barcode, col4_barcode = st.columns(4)
         with col1_barcode:
             altura_barcode = st.slider("Altura",1,500,50,key="altura_barcode")
