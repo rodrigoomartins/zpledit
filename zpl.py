@@ -2,54 +2,15 @@ import streamlit as st
 import requests
 import shutil
 
-st.set_page_config(page_title="ZPL Edit",page_icon="🖨",layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title="ZPL Edit", page_icon="🖨", layout="wide", initial_sidebar_state="auto")
+st.page_link("pages/zpl_manual.py", label="ZPL Edit - Manual")
 
-st.page_link("pages/zpl_manual.py",label="ZPL Edit - Manual")
-
-with st.sidebar:
-   
-    st.subheader("Configurações da etiqueta")
-    layout_etiquetas = st.selectbox(
-        'Layout predefinidos',
-        ('Personalizado','73x20', '45x20', '100x25'),
-
-    )
-    tamanhos_predefinidos = {
-        "Personalizado": (1,1),
-        "73x20": (73,20),
-        "45x20": (45,20),
-        "100x25": (100,25),
-    }
-    
-    largura, altura = tamanhos_predefinidos[layout_etiquetas]
-
-    if layout_etiquetas == "Personalizado":
-        largura = st.number_input("Largura da etiqueta:",1,500,73)
-        altura = st.number_input("Altura da etiqueta:",1,500,20)
-    
-    st.divider()
-    dpi = st.select_slider(
-        'DPI:',
-        options=[6,8,12,24],
-        value=8,
-    )
-
-    
-
-dpi_y = altura*dpi
-dpi_x = largura*dpi
-percent_y = 100/(dpi_y)
-percent_x = 100/(dpi_x)
-posicao_x_texto = "Posição X"
-posicao_y_texto = "Posição Y"
-
-
-def ajustar_valor_x(valor_x):
-    return round(valor_x*(1/percent_x),1)
-
-def ajustar_valor_y(valor_y):
-    return round(valor_y*(1/percent_y))
-
+# Fontes padrão e opções de orientação
+fontes_disponiveis = [
+    "0 (Escalável)", "A", "B", "C", "D", "E (OCR-B)", "F", "G", "H (OCR-A)",
+    "P", "Q", "R", "S", "T", "U", "V"
+]
+orientacoes = {"Normal (N)": "N", "90° (R)": "R", "180° (I)": "I", "270° (B)": "B"}
 def converter_imagem_zpl(imagem):
     url = "http://api.labelary.com/v1/graphics"
     files = {"file": (imagem.name, imagem.read(), imagem.type)}
@@ -58,318 +19,254 @@ def converter_imagem_zpl(imagem):
     if response.status_code == 200:
         return response.text
     else:
-        st.error(f"Erro ao converter imagem: {response.status.code}")
+        st.error(f"Erro ao converter imagem: {response.status_code}")
         return None
 
 def remover_parametros_zpl(codigo_zpl):
-    pos_inicio = codigo_zpl.find(f"^GFA")
+    pos_inicio = codigo_zpl.find("^GFA")
     pos_fim = codigo_zpl.rfind("^XZ")
-    return codigo_zpl[pos_inicio:pos_fim]
+    return codigo_zpl[pos_inicio:pos_fim].strip()
 
-def limpar_tudo():
-    st.session_state['input_campo1'] = ""
-    st.session_state['input_campo2'] = ""
-    st.session_state['input_campo3'] = ""
-    st.session_state['input_campo4'] = ""
-    st.session_state['input_campo5'] = ""
-    st.session_state['input_tamanho'] = ""
-    st.session_state['input_barcode'] = ""
-    st.session_state['input_epc'] = ""
-    st.session_state['habilitar_logo_rfid'] = False
-    st.session_state['habilitar_qrcode'] = False
-    st.session_state['habilitar_caracteres_especiais'] = False
+with st.sidebar:
+    st.subheader("Configurações da etiqueta")
+    layout_etiquetas = st.selectbox('Layout predefinidos', ('Personalizado', '73x20', '45x20', '100x25'))
+    tamanhos_predefinidos = {
+        "Personalizado": (1, 1),
+        "73x20": (73, 20),
+        "45x20": (45, 20),
+        "100x25": (100, 25),
+    }
+    largura, altura = tamanhos_predefinidos[layout_etiquetas]
+    if layout_etiquetas == "Personalizado":
+        largura = st.number_input("Largura da etiqueta (mm):", 1, 500, 73)
+        altura = st.number_input("Altura da etiqueta (mm):", 1, 500, 20)
+    dpi = st.select_slider('DPI:', options=[6, 8, 12, 24], value=8)
+    layout_nome = st.text_input("Nome do layout ZPL:", placeholder="Ex: LAYOUT1")
+
+dpi_y = altura * dpi
+dpi_x = largura * dpi
+percent_y = 100 / dpi_y
+percent_x = 100 / dpi_x
+
+def ajustar_valor_x(valor_x): return round(valor_x * (1 / percent_x), 1)
+def ajustar_valor_y(valor_y): return round(valor_y * (1 / percent_y))
 
 st.title("ZPL Edit")
-st.text("Entradas personalizadas")
+st.text("Campos personalizados (^FN)")
 
-col001, col002 = st.columns([0.6,0.4])
-with col001:
-    with st.expander("Campo 1"):
-        input_campo1 = st.text_input("Descrição:",placeholder="Digite a descrição do campo 1...",max_chars=50,key="input_campo1")
-        col1_campo1, col2_campo1, col3_campo1 = st.columns(3)
-        with col1_campo1:
-            tamanho_campo1 = st.slider("Tamanho",0,200,18, key="tamanho_campo1")
-        with col2_campo1:
-            posicao_campo1_x = st.slider(posicao_x_texto,0,100,round(15*percent_x),key="posicao_campo1_x")
-            posicao_campo1_x = ajustar_valor_x(posicao_campo1_x)
-        with col3_campo1:
-            posicao_campo1_y = st.slider(posicao_y_texto,0,100,round(5*percent_y),key="posicao_campo1_y")
-            posicao_campo1_y = ajustar_valor_y(posicao_campo1_y)
-    with st.expander("Campo 2"):
-        input_campo2 = st.text_input("Descrição:", placeholder="Digite a descrição do campo 2...", max_chars=50,key="input_campo2")
-        col1_campo2, col2_campo2, col3_campo2 = st.columns(3)
-        with col1_campo2:
-            tamanho_campo2 = st.slider("Tamanho",0,200,18, key="tamanho_campo2")
-        with col2_campo2:
-            posicao_campo2_x = st.slider(posicao_x_texto,0,100,round(15*percent_x), key="posicao_campo2_x")
-            posicao_campo2_x = ajustar_valor_x(posicao_campo2_x)
-        with col3_campo2:
-            posicao_campo2_y = st.slider(posicao_y_texto,0,100,round(25*percent_y), key="posicao_campo2_y")
-            posicao_campo2_y = ajustar_valor_y(posicao_campo2_y)
-    with st.expander("Campo 3"):
-        input_campo3 = st.text_input("Descrição:", placeholder="Digite a descrição do campo 3...", max_chars=50,key="input_campo3")
-        col1_campo3, col2_campo3, col3_campo3 = st.columns(3)
-        with col1_campo3:
-            tamanho_campo3 = st.slider("Tamanho",0,200,18, key="tamanho_campo3")
-        with col2_campo3:
-            posicao_campo3_x = st.slider(posicao_x_texto,0,100,round(15*percent_x), key="posicao_campo3_x")
-            posicao_campo3_x = ajustar_valor_x(posicao_campo3_x)
-        with col3_campo3:
-            posicao_campo3_y = st.slider(posicao_y_texto,0,100,round(25*percent_y), key="posicao_campo3_y")
-            posicao_campo3_y = ajustar_valor_y(posicao_campo3_y)
-    with st.expander("Campo 4"):
-        input_campo4 = st.text_input("Descrição", placeholder="Digite a descrição do campo 4...", max_chars=50,key="input_campo4")
-        col1_campo4, col2_campo4, col3_campo4 = st.columns(3)
-        with col1_campo4:
-            tamanho_campo4 = st.slider("Tamanho",0,100,40, key = "tamanho_campo4")
-        with col2_campo4:
-            posicao_campo4_x = st.slider(posicao_x_texto,0,100,round(15*percent_x), key="posicao_campo4_x")
-            posicao_campo4_x = ajustar_valor_x(posicao_campo4_x)
-        with col3_campo4:
-            posicao_campo4_y = st.slider(posicao_y_texto,0,100,round(60*percent_y), key="posicao_campo4_y")
-            posicao_campo4_y = ajustar_valor_y(posicao_campo4_y)
-    with st.expander("Campo 5"):
-        input_campo5 = st.text_input("Descrição:", placeholder="Digite uma mensagem...",max_chars=50,key="input_campo5")
-        col1_campo5, col2_campo5, col3_campo5 = st.columns(3)
-        with col1_campo5:
-            tamanho_campo5 = st.slider("Tamanho",0,100,15, key = "tamanho_campo5")
-        with col2_campo5:
-            posicao_campo5_x = st.slider(posicao_x_texto,0,100,round(15*percent_x), key="posicao_campo5_x")
-            posicao_campo5_x = ajustar_valor_x(posicao_campo5_x)
-        with col3_campo5:
-            posicao_campo5_y = st.slider(posicao_y_texto,0,100,round(100*percent_y), key="posicao_campo5_y")
-            posicao_campo5_y = ajustar_valor_y(posicao_campo5_y)
+num_campos = st.number_input("Quantos campos deseja adicionar?", min_value=1, max_value=20, value=1, step=1)
+
+campos_preview = ""
+campos_export = ""
+proximo_fn = 1
+fn_map = {}
+col_geral1, col_geral2 = st.columns([3,2])
+with col_geral1:
+    # Campos dinâmicos
+    for i in range(1, num_campos + 1):
+        with st.expander(f"Campo {i}"):
+            nome = st.text_input(f"Nome do campo {i}", key=f"nome_{i}")
+            col_1, col_2, col_3, col_4, col_5, col_6 = st.columns(6)
+            with col_1:
+                fonte = st.selectbox("Fonte", fontes_disponiveis, key=f"fonte_{i}")
+            with col_2:
+                orientacao = st.selectbox("Orientação", orientacoes.keys(), key=f"orientacao_{i}")
+            with col_3:
+                largura_fonte = st.number_input("Largura (dots)", 1, 200, 30, key=f"largura_{i}")
+            with col_4:
+                altura_fonte = st.number_input("Altura (dots)", 1, 200, 30, key=f"altura_{i}")
+            with col_5:
+                pos_x = st.slider("Posição X (%)", 0, 100, 10, key=f"x_{i}")
+                pos_x = ajustar_valor_x(pos_x)
+            with col_6:
+                pos_y = st.slider("Posição Y (%)", 0, 100, 10, key=f"y_{i}")
+                pos_y = ajustar_valor_y(pos_y)
+            cod_fonte = fonte.split()[0] + orientacoes[orientacao]
+            campos_preview += f"^FO{pos_x},{pos_y}^A{cod_fonte},{altura_fonte},{largura_fonte}^FD{nome}^FS\n"
+            campos_export += f"^FO{pos_x},{pos_y}^A{cod_fonte},{altura_fonte},{largura_fonte}^FN{proximo_fn}^FS\n"
+            proximo_fn += 1
     st.divider()
-    st.text("Entradas predefinidas")
-    with st.expander("Tamanho"):
-        input_tamanho = st.text_input("Tamanho da peça:", placeholder="Digite o tamanho...",max_chars=3,key="input_tamanho")
-        col1_tamanho, col2_tamanho, col3_tamanho = st.columns(3)
-        with col1_tamanho:
-            tamanho_tamanho = st.slider("Tamanho", -100,100,0,disabled=True, key="tamanho_tamanho")
-        with col2_tamanho:
-            posicao_tamanho_x = st.slider(posicao_x_texto,0,100,34, key="posicao_tamanho_x")
-            posicao_tamanho_x = ajustar_valor_x(posicao_tamanho_x)
-        with col3_tamanho:
-            posicao_tamanho_y = st.slider(posicao_y_texto,0,100,26, key="posicao_tamanho_y")
-            posicao_tamanho_y = ajustar_valor_y(posicao_tamanho_y)
-    with st.expander("Código de Barras"):
-        tipo_barcode = st.selectbox(
-            'Tipo de código de barras',
-            ('EAN-13', 'Code 128 (sem dígito verificador)')
-        )
-        input_barcode = st.text_input("Código de barras:", placeholder="Digite o código de barras...",max_chars=50,key="input_barcode")
-        col1_barcode, col2_barcode, col3_barcode, col4_barcode = st.columns(4)
-        with col1_barcode:
-            altura_barcode = st.slider("Altura",1,500,50,key="altura_barcode")
-        with col2_barcode:
-            largura_barcode = st.slider("Largura",1,10,key="largura_barcode")
-        with col3_barcode:
-            posicao_barcode_x = st.slider(posicao_x_texto,0,100,round(370*percent_x),key="posicao_barcode_x")
-            posicao_barcode_x = ajustar_valor_x(posicao_barcode_x)
-        with col4_barcode:
-            posicao_barcode_y = st.slider(posicao_y_texto,0,100,round(40*percent_y),key="posicao_barcode_y")
-            posicao_barcode_y = ajustar_valor_y(posicao_barcode_y)
-    with st.expander("EPC"):
-        input_epc = st.text_input(label="EPC:", placeholder="Digite o EPC...", max_chars=24,key="input_epc")
-        col1_epc, col2_epc, col3_epc, col4_epc = st.columns(4)
-        with col1_epc:
-            altura_epc = st.number_input("Altura",0,10000,1, key="altura_epc")
-        with col2_epc:
-            largura_epc = st.number_input("Largura",0,10000,1, key = "largura_epc")
-        with col3_epc:
-            posicao_epc_x = st.slider(posicao_x_texto,0,100,round(15*percent_x), key="posicao_epc_x")
-            posicao_epc_x = ajustar_valor_x(posicao_epc_x)
-        with col4_epc:
-            posicao_epc_y = st.slider(posicao_y_texto,0,100,round(80*percent_y), key="posicao_epc_y")
-            posicao_epc_y = ajustar_valor_y(posicao_epc_y)
-        st.caption("Ajustes de altura e largura de fonte dependem da escalabilidade disponível.")
-    with st.expander ("Logo RFID"):
-        habilitar_logo_rfid = st.toggle("Habilitar logo",value=False,key="habilitar_logo_rfid")
-        col1_logo_rfid, col2_logo_rfid = st.columns(2)
-        if not habilitar_logo_rfid:
-            with col1_logo_rfid:
-                posicao_logo_rfid_x = st.slider(posicao_x_texto,0,100,50,disabled=True,key="posicao_logo_rfid_x")
-            with col2_logo_rfid:
-                posicao_logo_rfid_y = st.slider(posicao_y_texto,0,100,50,disabled=True,key="posicao_logo_rfid_y")
-            logo_rfid = ""
-        if habilitar_logo_rfid:
-            with col1_logo_rfid:
-                posicao_logo_rfid_x = st.slider(posicao_x_texto,0,100,50,key="posicao_logo_rfid_x")
-                posicao_logo_rfid_x = ajustar_valor_x(posicao_logo_rfid_x)
-            with col2_logo_rfid:
-                posicao_logo_rfid_y = st.slider(posicao_y_texto,0,100,50,key="posicao_logo_rfid_y")
-                posicao_logo_rfid_y = ajustar_valor_y(posicao_logo_rfid_y)
-            logo_rfid = (f"""^FO{posicao_logo_rfid_x},{posicao_logo_rfid_y}^GB20,3,3^FS
-^FO{posicao_logo_rfid_x},{posicao_logo_rfid_y}^GB3,40,3^FS
-^FO{posicao_logo_rfid_x},{posicao_logo_rfid_y+40}^GB40,3,3^FS
-^FO{posicao_logo_rfid_x+40},{posicao_logo_rfid_y+25.5}^GB3,17,3^FS
-^FO{posicao_logo_rfid_x+5},{posicao_logo_rfid_y+25}^A0N,14,17^FDRFID^FS
-^FO{posicao_logo_rfid_x+25},{posicao_logo_rfid_y-4}^GC25,25,B^FS
-^FO{posicao_logo_rfid_x+23},{posicao_logo_rfid_y-2}^GC25,25,W^FS
-^FO{posicao_logo_rfid_x+28},{posicao_logo_rfid_y+3}^GC15,15,B^FS
-^FO{posicao_logo_rfid_x+26},{posicao_logo_rfid_y+5}^GC15,15,W^FS
-^FO{posicao_logo_rfid_x+30},{posicao_logo_rfid_y+10}^GC6,5,B^FS""")
+    st.caption("Campos predefinidios")
+    # Campo TAMANHO
+    with st.expander("Tamanho da peça"):
+        input_tamanho = st.text_input("Valor (ex: G, GG, P...)", placeholder="Digite o tamanho...", max_chars=4)
+        col_tamanho1, col_tamanho2, col_tamanho3, col_tamanho4 = st.columns(4)
+        with col_tamanho1:
+            fonte_valor = st.selectbox("Fonte para valor", fontes_disponiveis, key="fonte_valor")
+            fonte_tag = st.selectbox("Fonte para 'TAM:'", fontes_disponiveis, key="fonte_tag")
+        with col_tamanho2:
+            orientacao_valor = st.selectbox("Orientação do valor", orientacoes.keys(), key="orientacao_valor")
+            orientacao_tag = st.selectbox("Orientação TAM:", orientacoes.keys(), key="orientacao_tag")
+        with col_tamanho3:
+            altura_valor = st.number_input("Altura valor", 1, 1000, 38, key="tam_valor")
+            altura_tag = st.number_input("Altura TAM:", 1, 1000, 18, key="tam_tag")
+        with col_tamanho4:
+            largura_valor = st.number_input("Largura valor", 1, 1000, 38, key="larg_valor")
+            largura_tag = st.number_input("Largura TAM:", 1, 1000, 18, key="larg_tag")
         
-    with st.expander("QRCode"):
-        habilitar_qrcode = st.toggle("QRCode", value=False, key="habilitar_qrcode")
-        if not habilitar_qrcode:
-            qrcode_zpl = ""
-        if habilitar_qrcode:
-            opcao_1 = st.radio("",("EPC","Barcode"))
-            if opcao_1 == "EPC":
-                conteudo_qrcode = input_epc
-            elif opcao_1 == "Barcode":
-                conteudo_qrcode = input_barcode
-            col43, col44, col45 = st.columns(3)
-            with col43:
-                tamanho_qrcode = st.slider("Tamanho",0,10,3,key="tamanho_qrcode")
-            with col44:
-                posicao_qrcode_x = st.slider(posicao_x_texto,0,100,key="posicao_qrcode_x")
-                posicao_qrcode_x = ajustar_valor_x(posicao_qrcode_x)
-            with col45:
-                posicao_qrcode_y = st.slider(posicao_y_texto,0,100,round(10*percent_y),key="posicao_qrcode_y")
-                posicao_qrcode_y = ajustar_valor_y(posicao_qrcode_y)
-            qrcode_zpl = (f"""^FO{posicao_qrcode_x},{posicao_qrcode_y}^BQN,2,{tamanho_qrcode},Q,7^FDQR,{conteudo_qrcode}^FS
-        ^XZ""")
-    with st.expander("Caracteres especiais"):
-        habilitar_caracteres_especiais = st.toggle("Caracteres especiais",key="habilitar_caracteres_especiais")
-        if not habilitar_caracteres_especiais:
-            codificacao_caracteres = ""
-        else:
-            input_codificacao_caracteres = st.number_input("Codificação:",0,255,28,key="codificacao_caracteres")
-            codificacao_caracteres = (f"^CI{input_codificacao_caracteres}")
-            st.text(f"""Mais utilizados:
-27 = Zebra Code Page 1252
-28 = Unicode (UTF-8 encoding) - Unicode Character Set""")
-            st.link_button("Consultar documentação","https://www.zebra.com/content/dam/zebra_new_ia/en-us/manuals/printers/common/programming/zpl-zbi2-pm-en-pg.pdf")
+        col1, col2 = st.columns(2)
+        with col1:
+            pos_x_tam = st.slider("Posição X", 0, 100, 34, key="posicao_tamanho_x")
+            pos_x_tam = ajustar_valor_x(pos_x_tam)
+        with col2:
+            pos_y_tam = st.slider("Posição Y", 0, 100, 26, key="posicao_tamanho_y")
+            pos_y_tam = ajustar_valor_y(pos_y_tam)
 
-    limpar = st.button("Limpar entradas", on_click=limpar_tudo)
-        
-
-    if not input_campo1:
-        campo1 = ""
-    else:
-        campo1 = (f"^FO{posicao_campo1_x},{posicao_campo1_y},^A0N,{tamanho_campo1}^FD{input_campo1}^FS")
-    if not input_campo2:
-        campo2 = ""
-    else:
-        campo2 = (f"^FO{posicao_campo2_x},{posicao_campo2_y}^A0N,{tamanho_campo2},{tamanho_campo2}^FD{input_campo2}^FS")
-    if not input_campo3:
-        campo3 = ""
-    else:
-        campo3 = (f"^FO{posicao_campo3_x},{posicao_campo3_y}^A0N,{tamanho_campo3},{tamanho_campo3}^FD{input_campo3}^FS")
-    if not input_campo4:
-        campo4=""
-    else:
-        campo4 = (f"^FO{posicao_campo4_x},{posicao_campo4_y}^A0N,{tamanho_campo4},{tamanho_campo4}^FD{input_campo4}^FS")
-    if not input_campo5:
-        campo5=""
-    else:
-        campo5 = (f"^FO{posicao_campo5_x},{posicao_campo5_y}^A0N,{tamanho_campo5},{tamanho_campo5}^FD{input_campo5}^FS")
-    if not input_tamanho:
-        tamanho = ("")
-    else:
-        tamanho = (f"""^FO{posicao_tamanho_x},{posicao_tamanho_y}^GB{((tamanho_tamanho/100)+1)*115},{((tamanho_tamanho/100)+1)*50},2^FS
-^FO{posicao_tamanho_x+55},{posicao_tamanho_y+10}^A0N,{((tamanho_tamanho/100)+1)*38},{((tamanho_tamanho/100)+1)*33}^FD{input_tamanho}^FS
-^FO{posicao_tamanho_x+5},{posicao_tamanho_y+18}^AN,18,18^FDTAM:^FS""")
-    if not input_barcode:
-        barcode = ("")
-    elif tipo_barcode == 'EAN-13':
-        barcode = (f"^BY{largura_barcode}^FO{posicao_barcode_x},{posicao_barcode_y}^BEN,{altura_barcode},Y,N^FD{input_barcode}^FS")
-    elif tipo_barcode == 'Code 128 (sem dígito verificador)':
-        barcode = (f"^BY{largura_barcode}^FO{posicao_barcode_x},{posicao_barcode_y}^BCN,{altura_barcode},Y,N,N,A^FD{input_barcode}^FS")
-    if not input_epc:
-        epc = ""
-    else:
-        epc = (f"^FO{posicao_epc_x},{posicao_epc_y}^ADN,{altura_epc},{largura_epc}^FD{input_epc}^FS")
-    
-    codigo_zpl_imagem = ""
-    imagem_file = st.file_uploader("Adicione uma imagem (PNG):", type=['png'])
-    if imagem_file is not None:
-        codigo_zpl_imagem = converter_imagem_zpl(imagem_file)
-        codigo_zpl_imagem = remover_parametros_zpl(codigo_zpl_imagem)
-        if codigo_zpl_imagem is not None:
-            st.success("Imagem convertida com sucesso!",icon="✅")
-            col24, col25, col26 = st.columns(3)
-            with col24:
-                tamanho_imagem = st.slider("Tamanho",-100,100,0,key="tamanho_imagem")
-            with col25:
-                posicao_imagem_x = st.slider(posicao_x_texto,0,100,0,key="posicao_imagem_x")
-                posicao_imagem_x = ajustar_valor_x(posicao_imagem_x)
-            with col26:
-                posicao_imagem_y = st.slider(posicao_y_texto,0,100,0,key="posicao_imagem_y")
-                posicao_imagem_y = ajustar_valor_y(posicao_imagem_y)
-            codigo_zpl_imagem = (f"^FO{posicao_imagem_x},{posicao_imagem_y}^FRD{codigo_zpl_imagem}")
-        else:
-            st.error("Erro ao converter a imagem.")
-            codigo_zpl_imagem = ""
-
-
-zpl  = f"""
-^XA
-{codificacao_caracteres}
-^RFW,H^FD{input_epc}^FS
-
-^FX Campo 1
-{campo1}
-
-^FX Campo 2
-{campo2}
-
-^FX Campo 3
-{campo3}
-
-^FX Campo 4
-{campo4}
-
-^FX Campo 5
-{campo5}
-
-^FX Tamanho
-{tamanho}
-
-^FX Código de barras
-{barcode}
-
-^FX EPC
-{epc}
-
-^FX Logo RFID
-{logo_rfid}
-
-^FX QRCode
-{qrcode_zpl}
-
-^FX Imagem
-{codigo_zpl_imagem}
-
-^XZ
+    if input_tamanho:
+        cod_valor = fonte_valor.split()[0] + orientacoes[orientacao_valor]
+        cod_tag = fonte_tag.split()[0] + orientacoes[orientacao_tag]
+        campos_preview += f"""
+^FO{pos_x_tam},{pos_y_tam}^GB115,50,2^FS
+^FO{pos_x_tam+55},{pos_y_tam+10}^A{cod_valor},{altura_valor},{largura_valor}^FD{input_tamanho}^FS
+^FO{pos_x_tam+5},{pos_y_tam+18}^A{cod_tag},{altura_tag},{largura_tag}^FDTAM:^FS
 """
+        campos_export += f"""
+^FO{pos_x_tam},{pos_y_tam}^GB115,50,2^FS
+^FO{pos_x_tam+55},{pos_y_tam+10}^A{cod_valor},{altura_valor},{largura_valor}^FN{proximo_fn}^FS
+^FO{pos_x_tam+5},{pos_y_tam+18}^A{cod_tag},{altura_tag},{largura_tag}^FDTAM:^FS
+"""
+        proximo_fn += 1
 
-url = f'http://api.labelary.com/v1/printers/{dpi}dpmm/labels/{largura / 25.4}x{altura / 25.4}/0/'
-files = {'file' : zpl}
-response = requests.post(url, files = files, stream = True)
+    # Campo Código de Barras
+    with st.expander("Código de Barras"):
+        tipo_barcode = st.selectbox('Tipo de código de barras', ('EAN-13', 'Code 128 (sem dígito verificador)'))
+        input_barcode = st.text_input("Código:", placeholder="Digite o código...", max_chars=50, key="input_barcode")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            altura_barcode = st.slider("Altura", 1, 500, 50, key="altura_barcode")
+        with col2:
+            largura_barcode = st.slider("Largura", 1, 10, key="largura_barcode")
+        with col3:
+            pos_x_barcode = st.slider("Posição X", 0, 100, 70, key="posicao_barcode_x")
+            pos_x_barcode = ajustar_valor_x(pos_x_barcode)
+        with col4:
+            pos_y_barcode = st.slider("Posição Y", 0, 100, 40, key="posicao_barcode_y")
+            pos_y_barcode = ajustar_valor_y(pos_y_barcode)
 
-if response.status_code == 200:
-    response.raw.decode_content = True
-    with open('label.png', 'wb') as out_file:
-        shutil.copyfileobj(response.raw, out_file)
-else:
-    st.error(response.text)
+    if input_barcode:
+        tipo_zpl = "^BEN" if tipo_barcode == 'EAN-13' else "^BCN"
+        campos_preview += f"^BY{largura_barcode}^FO{pos_x_barcode},{pos_y_barcode}{tipo_zpl},{altura_barcode},Y,N^FD{input_barcode}^FS\n"
+        campos_export += f"^BY{largura_barcode}^FO{pos_x_barcode},{pos_y_barcode}{tipo_zpl},{altura_barcode},Y,N^FN{proximo_fn}^FS\n"
+        proximo_fn += 1
+
+    # EPC
+    with st.expander("EPC"):
+        input_epc = st.text_input("EPC:", placeholder="Digite o EPC...", max_chars=24, key="input_epc")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            fonte_epc = st.selectbox("Fonte EPC", fontes_disponiveis, key="fonte_epc")
+        with col2:
+            orientacao_epc = st.selectbox("Orientação EPC", orientacoes.keys(), key="orientacao_epc")
+        with col3:
+            altura_epc = st.number_input("Altura", 1, 1000, 30, key="altura_epc")
+        with col4:
+            largura_epc = st.number_input("Largura", 1, 1000, 30, key="largura_epc")
+        col1, col2 = st.columns(2)
+        with col1:
+            pos_x_epc = st.slider("Posição X", 0, 100, 15, key="posicao_epc_x")
+            pos_x_epc = ajustar_valor_x(pos_x_epc)
+        with col2:
+            pos_y_epc = st.slider("Posição Y", 0, 100, 80, key="posicao_epc_y")
+            pos_y_epc = ajustar_valor_y(pos_y_epc)
+
+    if input_epc:
+        cod_fonte_epc = fonte_epc.split()[0] + orientacoes[orientacao_epc]
+        campos_preview += f"^FO{pos_x_epc},{pos_y_epc}^A{cod_fonte_epc},{altura_epc},{largura_epc}^FD{input_epc}^FS\n"
+        campos_export += f"^RFW,H^FD{input_epc}^FS\n"
+        campos_export += f"^FO{pos_x_epc},{pos_y_epc}^A{cod_fonte_epc},{altura_epc},{largura_epc}^FN{proximo_fn}^FS\n"
+        proximo_fn += 1
+
+    # Logo RFID com escala proporcional
+    with st.expander("Logo RFID"):
+        habilitar_logo_rfid = st.toggle("Habilitar logo", value=False, key="habilitar_logo_rfid")
+        col1, col2, col3 = st.columns(3)
+
+        if not habilitar_logo_rfid:
+            with col1:
+                st.slider("Posição X (%)", 0, 100, 50, disabled=True, key="posicao_logo_rfid_x")
+            with col2:
+                st.slider("Posição Y (%)", 0, 100, 50, disabled=True, key="posicao_logo_rfid_y")
+            with col3:
+                st.slider("Escala", 1, 10, 1, disabled=True, key="escala_logo_rfid")
+        else:
+            with col1:
+                pos_x_logo = st.slider("Posição X (%)", 0, 100, 50, key="posicao_logo_rfid_x")
+                pos_x_logo = ajustar_valor_x(pos_x_logo)
+            with col2:
+                pos_y_logo = st.slider("Posição Y (%)", 0, 100, 50, key="posicao_logo_rfid_y")
+                pos_y_logo = ajustar_valor_y(pos_y_logo)
+            with col3:
+                escala_logo = st.slider("Escala", 1, 10, 1, key="escala_logo_rfid")
+
+            esc = escala_logo
+            logo_rfid = f"""^FO{pos_x_logo},{pos_y_logo}^GB{20*esc},{3*esc},{3*esc}^FS
+^FO{pos_x_logo},{pos_y_logo}^GB{3*esc},{40*esc},{3*esc}^FS
+^FO{pos_x_logo},{pos_y_logo + 40*esc}^GB{40*esc},{3*esc},{3*esc}^FS
+^FO{pos_x_logo + 40*esc},{pos_y_logo + 26*esc}^GB{3*esc},{17*esc},{3*esc}^FS
+^FO{pos_x_logo + 5*esc},{pos_y_logo + 25*esc}^A0N,{14*esc},{17*esc}^FDRFID^FS
+^FO{pos_x_logo + 25*esc},{pos_y_logo - 4*esc}^GC{25*esc},{25*esc},B^FS
+^FO{pos_x_logo + 23*esc},{pos_y_logo - 2*esc}^GC{25*esc},{25*esc},W^FS
+^FO{pos_x_logo + 28*esc},{pos_y_logo + 3*esc}^GC{15*esc},{15*esc},B^FS
+^FO{pos_x_logo + 26*esc},{pos_y_logo + 5*esc}^GC{15*esc},{15*esc},W^FS
+^FO{pos_x_logo + 30*esc},{pos_y_logo + 10*esc}^GC{6*esc},{5*esc},B^FS
+"""
+            campos_preview += logo_rfid
+            campos_export += logo_rfid
+    # IMAGEM
+    with st.expander("Inserir imagem"):
+        imagem_file = st.file_uploader("Selecione uma imagem (formato PNG):", type=['png'])
+        codigo_zpl_imagem = ""
+        if imagem_file is not None:
+            zpl_convertido = converter_imagem_zpl(imagem_file)
+            if zpl_convertido:
+                codigo_zpl_imagem = remover_parametros_zpl(zpl_convertido)
+                st.success("Imagem convertida com sucesso!", icon="✅")
+                col_img1, col_img2 = st.columns(2)
+                with col_img1:
+                    pos_x_img = st.slider("Posição X (%)", 0, 100, 10, key="posicao_imagem_x")
+                    pos_x_img = ajustar_valor_x(pos_x_img)
+                with col_img2:
+                    pos_y_img = st.slider("Posição Y (%)", 0, 100, 10, key="posicao_imagem_y")
+                    pos_y_img = ajustar_valor_y(pos_y_img)
+
+                codigo_zpl_imagem = f"^FO{pos_x_img},{pos_y_img}^XGIMAGEM.GRF,1,1^FS\n{codigo_zpl_imagem}"
+            else:
+                codigo_zpl_imagem = ""
+
+with col_geral2:
+    # Monta os ZPLs
+    zpl_preview = f"^XA\n^LH0,0\n"
+    if codigo_zpl_imagem:
+        zpl_preview += f"{codigo_zpl_imagem}\n"
+    zpl_preview += f"{campos_preview}^XZ"
 
 
-with col002:
-    with st.expander("ZPL"):
-        st.code(zpl)
-        st.divider()
-    st.text("Preview")
-    st.caption(f"{largura} x {altura} (mm)")
-    st.image('label.png')
-    with open("label.png", "rb") as file:
-        st.download_button(
-            label="Download",
-            data=file,
-            file_name="label.png",
-            mime="image/png",
-            type='primary'
-        )
+    # Reorganiza o ^RFW se EPC estiver presente
+    zpl_export = f"^XA\n^LH0,0\n^DFE:{layout_nome}.ZPL^FS\n"
+
+    # Insere o ^RFW com FN do EPC no início do export, se houver
+    if input_epc:
+        zpl_export += f"^RFW,H^FN{proximo_fn - 1}^FS\n"  # FN usado pelo EPC
+    if codigo_zpl_imagem:
+        zpl_export += f"{codigo_zpl_imagem}\n"
+    zpl_export += f"{campos_export}^JZN\n^XZ"
+
+
+    # Preview com Labelary
+    url = f'http://api.labelary.com/v1/printers/{dpi}dpmm/labels/{largura / 25.4}x{altura / 25.4}/0/'
+    response = requests.post(url, files={'file': zpl_preview}, stream=True)
+
+    if response.status_code == 200:
+        response.raw.decode_content = True
+        with open("label.png", "wb") as out_file:
+            shutil.copyfileobj(response.raw, out_file)
+        st.image("label.png", caption=f"Preview: {largura}x{altura} mm @ {dpi}dpmm")
+    else:
+        st.error("Erro ao gerar a visualização da etiqueta")
+
+    with st.expander("ZPL Preview (visual)"):
+        st.code(zpl_preview, language="zpl")
+
+    with st.expander("ZPL Exportação (real com ^FN)"):
+        st.code(zpl_export, language="zpl")
+        st.download_button("Download ZPL", zpl_export, file_name=f"{layout_nome}.zpl", mime="text/plain")
