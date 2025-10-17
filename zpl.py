@@ -60,6 +60,7 @@ campos_preview = ""
 campos_export = ""
 proximo_fn = 1
 epc_fn = None
+fn_legenda = []  # <<<<< NOVO: armazena (FN, etiqueta/valor)
 fn_map = {}
 col_geral1, col_geral2 = st.columns([3,2])
 with col_geral1:
@@ -85,6 +86,8 @@ with col_geral1:
             cod_fonte = fonte.split()[0] + orientacoes[orientacao]
             campos_preview += f"^FO{pos_x},{pos_y}^A{cod_fonte},{altura_fonte},{largura_fonte}^FD{nome}^FS\n"
             campos_export += f"^FO{pos_x},{pos_y}^A{cod_fonte},{altura_fonte},{largura_fonte}^FN{proximo_fn}^FS\n"
+            # <<<<< NOVO: legenda para campos personalizados (usa o nome digitado)
+            fn_legenda.append((proximo_fn, nome if nome else f"Campo {i}"))
             proximo_fn += 1
     st.divider()
     st.caption("Campos predefinidios")
@@ -126,6 +129,8 @@ with col_geral1:
 ^FO{pos_x_tam+55},{pos_y_tam+10}^A{cod_valor},{altura_valor},{largura_valor}^FN{proximo_fn}^FS
 ^FO{pos_x_tam+5},{pos_y_tam+18}^A{cod_tag},{altura_tag},{largura_tag}^FDTAM:^FS
 """
+        # <<<<< NOVO: legenda para Tamanho (usa o valor digitado)
+        fn_legenda.append((proximo_fn, f"Tamanho: {input_tamanho}"))
         proximo_fn += 1
 
     # Campo Código de Barras
@@ -148,6 +153,8 @@ with col_geral1:
         tipo_zpl = "^BEN" if tipo_barcode == 'EAN-13' else "^BCN"
         campos_preview += f"^BY{largura_barcode}^FO{pos_x_barcode},{pos_y_barcode}{tipo_zpl},{altura_barcode},Y,N^FD{input_barcode}^FS\n"
         campos_export += f"^BY{largura_barcode}^FO{pos_x_barcode},{pos_y_barcode}{tipo_zpl},{altura_barcode},Y,N^FN{proximo_fn}^FS\n"
+        # <<<<< NOVO: legenda para Código de Barras (usa o código digitado)
+        fn_legenda.append((proximo_fn, f"Código de Barras: {input_barcode}"))
         proximo_fn += 1
 
     # EPC
@@ -180,6 +187,8 @@ with col_geral1:
 
         # guarda o FN do EPC para inserir o ^RFW uma única vez no início do ZPL final
         epc_fn = proximo_fn
+        # <<<<< NOVO: legenda para EPC (usa o EPC digitado)
+        fn_legenda.append((proximo_fn, f"EPC: {input_epc}"))
         proximo_fn += 1
 
     # Logo RFID com escala proporcional
@@ -250,7 +259,6 @@ with col_geral2:
     # Reorganiza o ^RFW se EPC estiver presente
     zpl_export = f"^XA\n^LH0,0\n^DFE:{layout_nome}.ZPL^FS\n"
 
-    # Insere o ^RFW com FN do EPC no início do export, se houver
     # Insere o ^RFW com o ^FN do EPC (apenas 1x)
     if epc_fn is not None:
         zpl_export += f"^RFW,H^FN{epc_fn}^FS\n"
@@ -270,6 +278,11 @@ with col_geral2:
         st.image("label.png", caption=f"Preview: {largura}x{altura} mm @ {dpi}dpmm")
     else:
         st.error("Erro ao gerar a visualização da etiqueta")
+
+    # <<<<< NOVO: legenda de FNs abaixo do preview
+    if fn_legenda:
+        legenda_txt = "\n".join([f"FN{n}: {label}" for n, label in fn_legenda])
+        st.text_area("Legenda de FNs (^FN)", value=legenda_txt, height=120)
 
     with st.expander("ZPL Preview (visual)"):
         st.code(zpl_preview, language="zpl")
