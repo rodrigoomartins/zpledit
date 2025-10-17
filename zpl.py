@@ -59,6 +59,7 @@ num_campos = st.number_input("Quantos campos deseja adicionar?", min_value=1, ma
 campos_preview = ""
 campos_export = ""
 proximo_fn = 1
+epc_fn = None
 fn_map = {}
 col_geral1, col_geral2 = st.columns([3,2])
 with col_geral1:
@@ -171,9 +172,14 @@ with col_geral1:
 
     if input_epc:
         cod_fonte_epc = fonte_epc.split()[0] + orientacoes[orientacao_epc]
+        # Preview mostra o EPC digitado (visual)
         campos_preview += f"^FO{pos_x_epc},{pos_y_epc}^A{cod_fonte_epc},{altura_epc},{largura_epc}^FD{input_epc}^FS\n"
-        campos_export += f"^RFW,H^FD{input_epc}^FS\n"
+
+        # Export usa ^FN (sem ^FD aqui!)
         campos_export += f"^FO{pos_x_epc},{pos_y_epc}^A{cod_fonte_epc},{altura_epc},{largura_epc}^FN{proximo_fn}^FS\n"
+
+        # guarda o FN do EPC para inserir o ^RFW uma única vez no início do ZPL final
+        epc_fn = proximo_fn
         proximo_fn += 1
 
     # Logo RFID com escala proporcional
@@ -245,8 +251,9 @@ with col_geral2:
     zpl_export = f"^XA\n^LH0,0\n^DFE:{layout_nome}.ZPL^FS\n"
 
     # Insere o ^RFW com FN do EPC no início do export, se houver
-    if input_epc:
-        zpl_export += f"^RFW,H^FN{proximo_fn - 1}^FS\n"  # FN usado pelo EPC
+    # Insere o ^RFW com o ^FN do EPC (apenas 1x)
+    if epc_fn is not None:
+        zpl_export += f"^RFW,H^FN{epc_fn}^FS\n"
     if codigo_zpl_imagem:
         zpl_export += f"{codigo_zpl_imagem}\n"
     zpl_export += f"{campos_export}^JZN\n^XZ"
